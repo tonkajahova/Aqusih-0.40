@@ -76,6 +76,7 @@ type State = {
 
 const BAG_KEY = "aquish_bag_v1";
 const LEGACY_KEY = "aquish_state_v1";
+const CATALOG_KEY = "aquish_catalog_local_v1";
 
 const defaultState = (): State => ({
   categories: [],
@@ -102,6 +103,60 @@ function emit() { listeners.forEach((l) => l()); }
 function persistBag() {
   if (typeof window === "undefined") return;
   try { localStorage.setItem(BAG_KEY, JSON.stringify(state.bag)); } catch {}
+}
+type PersistedCatalog = Pick<State, "categories" | "products" | "dropAt">;
+
+function readLocalCatalog(): PersistedCatalog | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(CATALOG_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return {
+      categories: Array.isArray(parsed.categories) ? parsed.categories : [],
+      products: Array.isArray(parsed.products) ? parsed.products.map((p: any) => ({
+        id: p.id,
+        sku: p.sku ?? "",
+        name: p.name ?? "",
+        price: typeof p.price === "string" ? p.price : "",
+        description: p.description ?? "",
+        categoryId: p.categoryId ?? p.category_id ?? "",
+        colors: Array.isArray(p.colors) ? p.colors : [],
+        sizes: Array.isArray(p.sizes) ? p.sizes : [],
+        stock: p.stock ?? 0,
+        lowStockThreshold: p.lowStockThreshold ?? p.low_stock_threshold ?? 3,
+        status: p.status === "published" ? "published" : "draft",
+        order: p.order ?? 0,
+        tags: Array.isArray(p.tags) ? p.tags : [],
+        styles: Array.isArray(p.styles) ? p.styles : [],
+      })) : [],
+      dropAt: parsed.dropAt || null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function writeLocalCatalog(next: PersistedCatalog) {
+  if (typeof window === "undefined") return;
+  const products = await Promise.all(next.products.map((p) => persistProductImages(p)));
+  try {
+    localStorage.setItem(
+      CATALOG_KEY,
+      JSON.stringify({ categories: next.categories, products, dropAt: next.dropAt }),
+    );
+  } catch (err) {
+    console.error("[catalog] local save failed", err);
+    throw new Error(
+      "Local catalog storage is full. Remove a few product images or clear old site data, then try again.",
+    );
+  }
+}
+
+function commitCatalogState(next: State) {
+  state = next;
+  emit();
+  return writeLocalCatalog({ categories: next.categories, products: next.products, dropAt: next.dropAt });
 }
 function setState(updater: (s: State) => State) {
   state = updater(state);
@@ -160,13 +215,29 @@ function productToRow(p: Product) {
   };
 }
 
-// --- Cloud load ---
+// --- Catalogue load ---
 let loadingPromise: Promise<void> | null = null;
 
 export async function loadFromCloud() {
   if (typeof window === "undefined") return;
   if (loadingPromise) return loadingPromise;
   loadingPromise = (async () => {
+    const local = readLocalCatalog();
+    if (local) {
+      const hydrated = await Promise.all(local.products.map((p) => hydrateProductImages(p)));
+      setState((s) => ({
+        ...s,
+        categories: local.categories,
+        products: hydrated,
+        dropAt: local.dropAt,
+        loaded: true,
+      }));
+      return;
+    }
+
+    // First-run import from the existing backend catalogue only. After this,
+    // admin edits are written locally (metadata in localStorage, images in IDB)
+    // so product images are never pushed through JSON/API request limits.
     const [catsR, prodsR, dropR] = await Promise.all([
       supabase.from("categories").select("*").order("order", { ascending: true }),
       supabase.from("products").select("*").order("order", { ascending: true }),
@@ -179,11 +250,12 @@ export async function loadFromCloud() {
     const dropRaw = dropR.data?.value ?? "";
     const hydrated = await Promise.all(products.map((p) => hydrateProductImages(p)));
     setState((s) => ({ ...s, categories, products: hydrated, dropAt: dropRaw || null, loaded: true }));
+    await writeLocalCatalog({ categories, products: hydrated, dropAt: dropRaw || null });
   })().finally(() => { loadingPromise = null; });
   return loadingPromise;
 }
 
-// --- One-time migration from old localStorage to cloud (admin only) ---
+// --- One-time migration from old localStorage to the local catalogue ---
 export async function migrateLocalToCloud(): Promise<{ migrated: number } | null> {
   if (typeof window === "undefined") return null;
   let legacy: any = null;
@@ -193,124 +265,87 @@ export async function migrateLocalToCloud(): Promise<{ migrated: number } | null
   } catch {}
   if (!legacy || (!legacy.products?.length && !legacy.categories?.length)) return null;
   if (state.categories.length > 0 || state.products.length > 0) {
-    // Cloud already has data — don't overwrite. Mark legacy consumed.
+    // Catalogue already has data — don't overwrite. Mark legacy consumed.
     localStorage.removeItem(LEGACY_KEY);
     return null;
   }
-  // Push categories first (preserve ids)
-  if (Array.isArray(legacy.categories) && legacy.categories.length) {
-    await supabase.from("categories").upsert(
-      legacy.categories.map((c: any) => ({ id: c.id, name: c.name, order: c.order ?? 0 })),
-      { onConflict: "id" },
-    );
-  }
-  let migrated = 0;
-  if (Array.isArray(legacy.products) && legacy.products.length) {
-    const rows = legacy.products.map((p: any) =>
-      productToRow({
-        id: p.id,
-        sku: p.sku ?? "",
-        name: p.name ?? "",
-        price: typeof p.price === "string" ? p.price : "",
-        description: p.description ?? "",
-        categoryId: p.categoryId ?? "",
-        colors: p.colors ?? [],
-        sizes: p.sizes ?? [],
-        stock: p.stock ?? 0,
-        lowStockThreshold: p.lowStockThreshold ?? 3,
-        status: p.status === "published" ? "published" : "draft",
-        order: p.order ?? 0,
-        tags: Array.isArray(p.tags) ? p.tags : [],
-        styles: Array.isArray(p.styles) ? p.styles : [],
-      }),
-    );
-    const { error } = await supabase.from("products").upsert(rows, { onConflict: "id" });
-    if (!error) migrated = rows.length;
-  }
-  if (legacy.dropAt) {
-    await supabase.from("site_content").upsert({ key: "drop_at", value: legacy.dropAt }, { onConflict: "key" });
-  }
+  const categories: Category[] = Array.isArray(legacy.categories)
+    ? legacy.categories.map((c: any) => ({ id: c.id, name: c.name, order: c.order ?? 0 }))
+    : [];
+  const products: Product[] = Array.isArray(legacy.products)
+    ? legacy.products.map((p: any) => ({
+      id: p.id,
+      sku: p.sku ?? "",
+      name: p.name ?? "",
+      price: typeof p.price === "string" ? p.price : "",
+      description: p.description ?? "",
+      categoryId: p.categoryId ?? "",
+      colors: p.colors ?? [],
+      sizes: p.sizes ?? [],
+      stock: p.stock ?? 0,
+      lowStockThreshold: p.lowStockThreshold ?? 3,
+      status: p.status === "published" ? "published" : "draft",
+      order: p.order ?? 0,
+      tags: Array.isArray(p.tags) ? p.tags : [],
+      styles: Array.isArray(p.styles) ? p.styles : [],
+    }))
+    : [];
+  const hydrated = await Promise.all(products.map((p) => hydrateProductImages(p)));
+  await commitCatalogState({ ...state, categories, products: hydrated, dropAt: legacy.dropAt || null, loaded: true });
   localStorage.removeItem(LEGACY_KEY);
-  await loadFromCloud();
-  return { migrated };
+  return { migrated: products.length };
 }
 
 // --- Drop ---
 export async function setDropAt(iso: string | null) {
-  setState((s) => ({ ...s, dropAt: iso }));
-  await supabase.from("site_content").upsert({ key: "drop_at", value: iso ?? "" }, { onConflict: "key" });
+  await commitCatalogState({ ...state, dropAt: iso });
 }
 
 // --- Categories ---
 export async function addCategory(name: string) {
   const order = state.categories.length;
-  const { data } = await supabase
-    .from("categories")
-    .insert({ name: name.toUpperCase(), order })
-    .select()
-    .single();
-  if (data) {
-    setState((s) => ({
-      ...s,
-      categories: [...s.categories, { id: data.id, name: data.name, order: data.order ?? order }],
-    }));
-  }
+  await commitCatalogState({
+    ...state,
+    categories: [...state.categories, { id: crypto.randomUUID(), name: name.toUpperCase(), order }],
+  });
 }
 export async function deleteCategory(id: string) {
-  await supabase.from("categories").delete().eq("id", id);
-  setState((s) => ({
-    ...s,
-    categories: s.categories.filter((c) => c.id !== id),
-    products: s.products.filter((p) => p.categoryId !== id),
-  }));
+  await commitCatalogState({
+    ...state,
+    categories: state.categories.filter((c) => c.id !== id),
+    products: state.products.filter((p) => p.categoryId !== id),
+  });
 }
 
 // --- Products ---
 export async function upsertProduct(p: Product) {
   // Move inline data-URL images into IndexedDB and write only short refs to
-  // the database — this keeps the JSONB row tiny and avoids PostgREST size
-  // limits when products have many high-res transparent PNGs.
+  // localStorage — this keeps metadata small and avoids API/request limits.
   const persisted = await persistProductImages(p);
-  const { error } = await supabase
-    .from("products")
-    .upsert(productToRow(persisted), { onConflict: "id" });
-  if (error) {
-    // Surface the failure so the admin UI can show it instead of silently
-    // adding the product to local state and having it vanish on the next
-    // cloud reload.
-    console.error("[upsertProduct] save failed", error);
-    throw new Error(error.message || "Failed to save product");
-  }
-  setState((s) => {
-    const idx = s.products.findIndex((x) => x.id === p.id);
-    if (idx === -1) return { ...s, products: [...s.products, p] };
-    const next = [...s.products];
-    next[idx] = p;
-    return { ...s, products: next };
-  });
+  const hydrated = await hydrateProductImages(persisted);
+  const idx = state.products.findIndex((x) => x.id === p.id);
+  const products = idx === -1 ? [...state.products, hydrated] : [...state.products];
+  if (idx !== -1) products[idx] = hydrated;
+  await commitCatalogState({ ...state, products, loaded: true });
 }
 export async function deleteProduct(id: string) {
-  await supabase.from("products").delete().eq("id", id);
-  setState((s) => ({ ...s, products: s.products.filter((p) => p.id !== id) }));
+  await commitCatalogState({ ...state, products: state.products.filter((p) => p.id !== id) });
 }
 export async function deleteProducts(ids: string[]) {
-  await supabase.from("products").delete().in("id", ids);
-  setState((s) => ({ ...s, products: s.products.filter((p) => !ids.includes(p.id)) }));
+  await commitCatalogState({
+    ...state,
+    products: state.products.filter((p) => !ids.includes(p.id)),
+  });
 }
 export async function reorderProducts(categoryId: string, orderedIds: string[]) {
-  const updates = orderedIds.map((id, order) => ({ id, order }));
-  // Update one-by-one to keep RLS happy without service role
-  await Promise.all(
-    updates.map((u) => supabase.from("products").update({ order: u.order }).eq("id", u.id)),
-  );
-  setState((s) => ({
-    ...s,
-    products: s.products.map((p) => {
+  await commitCatalogState({
+    ...state,
+    products: state.products.map((p) => {
       if (p.categoryId !== categoryId) return p;
       const i = orderedIds.indexOf(p.id);
       return i === -1 ? p : { ...p, order: i };
     }),
-  }));
+  });
 }
 
 // --- Bag (local only) ---
