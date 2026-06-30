@@ -390,9 +390,19 @@ function Admin() {
           initial={editing}
           categories={categories}
           onClose={() => setEditing(null)}
-          onSave={(p) => {
-            upsertProduct(p);
-            setEditing(null);
+          onSave={async (p) => {
+            try {
+              await upsertProduct(p);
+              setEditing(null);
+            } catch (err: any) {
+              alert(
+                `SAVE FAILED — ${err?.message ?? "unknown error"}\n\n` +
+                  `Common causes:\n` +
+                  `• Images too large (try fewer / smaller PNGs)\n` +
+                  `• Not signed in as admin\n` +
+                  `• Network blocked`,
+              );
+            }
           }}
         />
       )}
