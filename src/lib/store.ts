@@ -265,7 +265,16 @@ export async function deleteCategory(id: string) {
 
 // --- Products ---
 export async function upsertProduct(p: Product) {
-  await supabase.from("products").upsert(productToRow(p), { onConflict: "id" });
+  const { error } = await supabase
+    .from("products")
+    .upsert(productToRow(p), { onConflict: "id" });
+  if (error) {
+    // Surface the failure so the admin UI can show it instead of silently
+    // adding the product to local state and having it vanish on the next
+    // cloud reload.
+    console.error("[upsertProduct] save failed", error);
+    throw new Error(error.message || "Failed to save product");
+  }
   setState((s) => {
     const idx = s.products.findIndex((x) => x.id === p.id);
     if (idx === -1) return { ...s, products: [...s.products, p] };
