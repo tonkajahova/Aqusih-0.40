@@ -153,10 +153,10 @@ async function writeLocalCatalog(next: PersistedCatalog) {
   }
 }
 
-function commitCatalogState(next: State) {
+async function commitCatalogState(next: State) {
+  await writeLocalCatalog({ categories: next.categories, products: next.products, dropAt: next.dropAt });
   state = next;
   emit();
-  return writeLocalCatalog({ categories: next.categories, products: next.products, dropAt: next.dropAt });
 }
 function setState(updater: (s: State) => State) {
   state = updater(state);
@@ -249,8 +249,7 @@ export async function loadFromCloud() {
     const products: Product[] = (prodsR.data ?? []).map(rowToProduct);
     const dropRaw = dropR.data?.value ?? "";
     const hydrated = await Promise.all(products.map((p) => hydrateProductImages(p)));
-    setState((s) => ({ ...s, categories, products: hydrated, dropAt: dropRaw || null, loaded: true }));
-    await writeLocalCatalog({ categories, products: hydrated, dropAt: dropRaw || null });
+    await commitCatalogState({ ...state, categories, products: hydrated, dropAt: dropRaw || null, loaded: true });
   })().finally(() => { loadingPromise = null; });
   return loadingPromise;
 }
