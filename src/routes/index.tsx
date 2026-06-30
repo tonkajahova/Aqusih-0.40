@@ -678,22 +678,7 @@ export function QuickView({
         <button onClick={onClose} className="aquish-link justify-self-start text-base">
           ×
         </button>
-        <div className="justify-self-center text-center inline-flex items-center gap-2">
-          <span>{product.name}</span>
-          {(() => {
-            let h = 0;
-            for (let i = 0; i < product.id.length; i++) h = (h * 31 + product.id.charCodeAt(i)) | 0;
-            const viewing = 6 + (Math.abs(h) % 24);
-            return (
-              <span
-                className="aquish-heat px-2 py-[3px] text-[9px] tracking-widest tabular-nums"
-                style={{ background: "#000", color: "#fff" }}
-              >
-                {viewing} VIEWING
-              </span>
-            );
-          })()}
-        </div>
+        <div className="justify-self-center text-center">{product.name}</div>
         <div />
       </div>
 
