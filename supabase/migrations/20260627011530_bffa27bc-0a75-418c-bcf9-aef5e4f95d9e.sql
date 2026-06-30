@@ -1,0 +1,1 @@
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS payment_provider text, ADD COLUMN IF NOT EXISTS payment_reference text, ADD COLUMN IF NOT EXISTS paid_at timestamptz;
