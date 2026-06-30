@@ -1,0 +1,302 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@font-face {
+  font-family: "Suisse Int'l";
+  src: url("/__l5e/assets-v1/f15dd3d6-398a-4bfd-9dc5-4af04d904280/SuisseIntl-Regular.ttf") format("truetype");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Design system definition.
+ *
+ * The @theme inline block maps CSS custom properties to Tailwind utility
+ * classes (e.g. --color-primary -> bg-primary, text-primary).
+ *
+ * The :root and .dark blocks define the actual color values using oklch.
+ * All colors MUST use oklch format.
+ *
+ * To add a new semantic color:
+ * 1. Add the variable to :root (light value) and .dark (dark value)
+ * 2. Register it in @theme inline as --color-<name>: var(--<name>)
+ */
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-ring-offset-background: var(--background);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+:root {
+  --radius: 0.625rem;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.129 0.042 264.695);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.129 0.042 264.695);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.129 0.042 264.695);
+  --primary: oklch(0.208 0.042 265.755);
+  --primary-foreground: oklch(0.984 0.003 247.858);
+  --secondary: oklch(0.968 0.007 247.896);
+  --secondary-foreground: oklch(0.208 0.042 265.755);
+  --muted: oklch(0.968 0.007 247.896);
+  --muted-foreground: oklch(0.554 0.046 257.417);
+  --accent: oklch(0.968 0.007 247.896);
+  --accent-foreground: oklch(0.208 0.042 265.755);
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(0.984 0.003 247.858);
+  --border: oklch(0.929 0.013 255.508);
+  --input: oklch(0.929 0.013 255.508);
+  --ring: oklch(0.704 0.04 256.788);
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+  --sidebar: oklch(0.984 0.003 247.858);
+  --sidebar-foreground: oklch(0.129 0.042 264.695);
+  --sidebar-primary: oklch(0.208 0.042 265.755);
+  --sidebar-primary-foreground: oklch(0.984 0.003 247.858);
+  --sidebar-accent: oklch(0.968 0.007 247.896);
+  --sidebar-accent-foreground: oklch(0.208 0.042 265.755);
+  --sidebar-border: oklch(0.929 0.013 255.508);
+  --sidebar-ring: oklch(0.704 0.04 256.788);
+}
+
+.dark {
+  --background: oklch(0.129 0.042 264.695);
+  --foreground: oklch(0.984 0.003 247.858);
+  --card: oklch(0.208 0.042 265.755);
+  --card-foreground: oklch(0.984 0.003 247.858);
+  --popover: oklch(0.208 0.042 265.755);
+  --popover-foreground: oklch(0.984 0.003 247.858);
+  --primary: oklch(0.929 0.013 255.508);
+  --primary-foreground: oklch(0.208 0.042 265.755);
+  --secondary: oklch(0.279 0.041 260.031);
+  --secondary-foreground: oklch(0.984 0.003 247.858);
+  --muted: oklch(0.279 0.041 260.031);
+  --muted-foreground: oklch(0.704 0.04 256.788);
+  --accent: oklch(0.279 0.041 260.031);
+  --accent-foreground: oklch(0.984 0.003 247.858);
+  --destructive: oklch(0.704 0.191 22.216);
+  --destructive-foreground: oklch(0.984 0.003 247.858);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.551 0.027 264.364);
+  --chart-1: oklch(0.488 0.243 264.376);
+  --chart-2: oklch(0.696 0.17 162.48);
+  --chart-3: oklch(0.769 0.188 70.08);
+  --chart-4: oklch(0.627 0.265 303.9);
+  --chart-5: oklch(0.645 0.246 16.439);
+  --sidebar: oklch(0.208 0.042 265.755);
+  --sidebar-foreground: oklch(0.984 0.003 247.858);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.984 0.003 247.858);
+  --sidebar-accent: oklch(0.279 0.041 260.031);
+  --sidebar-accent-foreground: oklch(0.984 0.003 247.858);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.551 0.027 264.364);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  html, body {
+    background-color: #fffafa;
+    color: #000;
+    font-family: "Suisse Int'l Pro", "Suisse Intl", "Suisse Int'l", "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-weight: 500;
+    -webkit-font-smoothing: antialiased;
+    scroll-behavior: smooth;
+  }
+}
+
+@keyframes aquish-pop { 0% { transform: scale(0.6); opacity: 0 } 60% { transform: scale(1.05); opacity: 1 } 100% { transform: scale(1); opacity: 1 } }
+.aquish-pop { animation: aquish-pop 280ms ease both; }
+
+.aquish-bg { background-color: #fffafa; }
+
+.aquish-input {
+  background: transparent;
+  border: 1px solid #000;
+  padding: 10px 12px;
+  width: 100%;
+  font-family: inherit;
+  letter-spacing: inherit;
+  font-size: 0.85rem;
+  color: #000;
+  border-radius: 0;
+  outline: none;
+}
+.aquish-input:focus { border-color: #000; box-shadow: inset 0 -1px 0 #000; }
+
+
+
+.ai {
+  background: transparent;
+  border: 1px solid #000;
+  padding: 8px 10px;
+  width: 100%;
+  font-family: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: #000;
+  border-radius: 0;
+}
+
+/* Text/button hover: subtle opacity, no color change */
+.aquish-link {
+  transition: opacity 200ms ease;
+}
+.aquish-link:hover {
+  opacity: 0.55;
+}
+
+/* Product card hover: slight magnification + quick image cross-fade
+   as the card cycles through styles / colours. */
+.aquish-card-img {
+  transition: transform 300ms ease;
+  will-change: transform;
+  transform: scale(1);
+}
+.aquish-card:hover .aquish-card-img {
+  transform: scale(1.03);
+}
+.aquish-card-img-fade {
+  animation: aquish-card-img-fade 140ms ease-out;
+}
+@keyframes aquish-card-img-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.aquish-size-btn {
+  transition: background-color 200ms ease, color 200ms ease;
+}
+.aquish-btn-primary {
+  transition: opacity 200ms ease;
+}
+.aquish-btn-primary:not(:disabled):hover {
+  opacity: 0.85;
+}
+
+@keyframes aquish-fade { from { opacity: 0 } to { opacity: 1 } }
+.aquish-fade-in { animation: aquish-fade 140ms ease-out both; }
+
+@keyframes aquish-route { from { opacity: 0; transform: translateY(2px) } to { opacity: 1; transform: none } }
+.aquish-route-fade { animation: aquish-route 160ms cubic-bezier(0.2,0.8,0.2,1) both; }
+
+
+
+
+@keyframes dropbar-soft {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.78; }
+}
+@keyframes dropbar-strong {
+  0%, 100% { transform: translateY(-50%) scale(1); opacity: 1; }
+  50% { transform: translateY(-50%) scale(1.04); opacity: 0.85; }
+}
+@keyframes dropbar-huge {
+  0%, 100% { transform: translateY(-50%) translateX(0) scale(1.08); }
+  20% { transform: translateY(-50%) translateX(-3px) scale(1.12); }
+  40% { transform: translateY(-50%) translateX(3px) scale(1.12); }
+  60% { transform: translateY(-50%) translateX(-2px) scale(1.1); }
+  80% { transform: translateY(-50%) translateX(2px) scale(1.1); }
+}
+
+/* Page wipe — quick fade through black, futuristic snap */
+@keyframes aquish-wipe {
+  0%   { opacity: 0; }
+  40%  { opacity: 0.85; }
+  100% { opacity: 0; }
+}
+
+/* Bag count bump when bag changes */
+@keyframes aquish-bag-bump {
+  0%   { transform: scale(1); }
+  30%  { transform: scale(1.35); }
+  60%  { transform: scale(0.92); }
+  100% { transform: scale(1); }
+}
+.aquish-bag-bump { display: inline-block; animation: aquish-bag-bump 380ms cubic-bezier(0.3,1.5,0.6,1) both; }
+
+/* Add-to-bag burst dot */
+@keyframes aquish-burst {
+  0%   { opacity: 1; transform: translate(var(--bx,0), var(--by,0)) scale(1); }
+  70%  { opacity: 1; }
+  100% { opacity: 0; transform: translate(var(--tx,0), var(--ty,0)) scale(0.3); }
+}
+
+
+
+
+/* Stock heat pulse */
+@keyframes aquish-heat {
+  0%, 100% { opacity: 0.9; }
+  50%      { opacity: 0.55; }
+}
+.aquish-heat { animation: aquish-heat 1.8s ease-in-out infinite; }
+
+/* Card info text — SKU sizing and weight */
+.aquish-card .tracking-widest { font-size: 15.6px; }
+.aquish-card .aquish-sku { font-weight: 500; transform: translateY(-86.4%); text-shadow: none; }
+
+/* Mobile polish: tighter gutters, comfortable tap targets, controlled text */
+@media (max-width: 640px) {
+  .aquish-mobile-gutter { padding-left: 16px; padding-right: 16px; }
+  .aquish-card .tracking-widest { font-size: 15.44px; }
+  .aquish-card .aquish-sku { font-weight: 600; transform: translateY(-40%); }
+  button, a { -webkit-tap-highlight-color: transparent; }
+  input, select, textarea { font-size: 16px; }
+  .aquish-input { padding: 12px 14px; }
+}
+
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+
