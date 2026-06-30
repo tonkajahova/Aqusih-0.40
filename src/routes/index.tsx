@@ -398,7 +398,6 @@ function ProductCard({
   useEffect(() => { if (!hovering) setCycleIdx(0); }, [hovering]);
   const img = hovering && cycleImages.length > 1 ? cycleImages[cycleIdx] : baseImg;
   const soldOut = product.stock <= 0;
-  const lowStock = !soldOut && product.stock <= product.lowStockThreshold;
   const salePct = getProductSale(content, product.id);
   const dropAt = getProductDrop(content, product.id);
   const dropping = !!dropAt;
