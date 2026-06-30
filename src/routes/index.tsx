@@ -398,7 +398,6 @@ function ProductCard({
   useEffect(() => { if (!hovering) setCycleIdx(0); }, [hovering]);
   const img = hovering && cycleImages.length > 1 ? cycleImages[cycleIdx] : baseImg;
   const soldOut = product.stock <= 0;
-  const lowStock = !soldOut && product.stock <= product.lowStockThreshold;
   const salePct = getProductSale(content, product.id);
   const dropAt = getProductDrop(content, product.id);
   const dropping = !!dropAt;
@@ -448,11 +447,6 @@ function ProductCard({
       <div className="flex flex-col items-center gap-[2px] pt-[6px] pb-2 px-2">
         <div className="tracking-widest aquish-sku">{product.sku}</div>
         {soldOut && <div className="tracking-widest opacity-70">SOLD OUT</div>}
-        {lowStock && !dropping && (
-          <div className="tracking-widest opacity-70">
-            ONLY {product.stock} LEFT
-          </div>
-        )}
       </div>
     </button>
   );
@@ -684,22 +678,7 @@ export function QuickView({
         <button onClick={onClose} className="aquish-link justify-self-start text-base">
           ×
         </button>
-        <div className="justify-self-center text-center inline-flex items-center gap-2">
-          <span>{product.name}</span>
-          {(() => {
-            let h = 0;
-            for (let i = 0; i < product.id.length; i++) h = (h * 31 + product.id.charCodeAt(i)) | 0;
-            const viewing = 6 + (Math.abs(h) % 24);
-            return (
-              <span
-                className="aquish-heat px-2 py-[3px] text-[9px] tracking-widest tabular-nums"
-                style={{ background: "#000", color: "#fff" }}
-              >
-                {viewing} VIEWING
-              </span>
-            );
-          })()}
-        </div>
+        <div className="justify-self-center text-center">{product.name}</div>
         <div />
       </div>
 
@@ -807,83 +786,18 @@ export function QuickView({
 
 
 
-      {/* ADD TO BAG selector overlay */}
+      {/* ADD TO BAG side panel — minimal, lets the image stay visible */}
       {bagOverlay && (
-        <div
-          className="fixed inset-0 z-[60] flex items-end md:items-center justify-center aquish-fade-in"
-          style={{ background: "rgba(245,244,240,0.96)" }}
-          onClick={() => setBagOverlay(false)}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-md p-6 flex flex-col gap-6 text-sm tracking-widest aquish-bg"
-            style={{ border: "1px solid #000" }}
-          >
-            <div className="flex items-center justify-between">
-              <div>{product.name}</div>
-              <button onClick={() => setBagOverlay(false)} className="aquish-link">
-                ×
-              </button>
-            </div>
-
-            {allColors.length > 1 && (
-              <div className="flex flex-col gap-2">
-                <div className="opacity-60 text-xs">
-                  COLOUR — {allColors.find((c) => c.id === colorId)?.name}
-                </div>
-                <div className="flex gap-2 flex-wrap">
-                  {allColors.map((c) => (
-                    <button
-                      key={c.id}
-                      onClick={() => setColorId(c.id)}
-                      title={c.name}
-                      style={{
-                        width: 24,
-                        height: 24,
-                        background: c.swatch,
-                        outline: colorId === c.id ? "1px solid #000" : "none",
-                        outlineOffset: 2,
-                        border: "1px solid rgba(0,0,0,0.15)",
-                      }}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {product.sizes.length > 0 && (
-              <div className="flex flex-col gap-2">
-                <div className="opacity-60 text-xs">SIZE</div>
-                <div className="flex gap-2 flex-wrap">
-                  {product.sizes.map((s) => (
-                    <button
-                      key={s}
-                      onClick={() => setSize(s)}
-                      className="px-4 py-2 text-xs tracking-widest aquish-size-btn"
-                      style={{
-                        border: "1px solid #000",
-                        background: size === s ? "#000" : "transparent",
-                        color: size === s ? "#fff" : "#000",
-                      }}
-                    >
-                      {s}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <button
-              disabled={soldOut || !size || !colorId}
-              onClick={handleAddToBag}
-              className="w-full py-4 text-sm tracking-widest disabled:opacity-40 aquish-btn-primary"
-              style={{ background: "#000", color: "#fff", border: "none" }}
-            >
-              {soldOut ? "SOLD OUT" : !size ? "SELECT SIZE" : "ADD TO BAG"}
-            </button>
-
-          </div>
-        </div>
+        <BagSelector
+          product={product}
+          soldOut={soldOut}
+          size={size}
+          setSize={setSize}
+          colorId={colorId}
+          setColorId={setColorId}
+          onClose={() => setBagOverlay(false)}
+          onConfirm={handleAddToBag}
+        />
       )}
 
       {/* NOTIFY ME overlay */}
@@ -1132,5 +1046,173 @@ function BagDrawer({
         </div>
       </aside>
     </>
+  );
+}
+
+function BagSelector({
+  product,
+  soldOut,
+  size,
+  setSize,
+  colorId,
+  setColorId,
+  onClose,
+  onConfirm,
+}: {
+  product: Product;
+  soldOut: boolean;
+  size: string;
+  setSize: (s: string) => void;
+  colorId: string;
+  setColorId: (id: string) => void;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  // Group colours by style. If the product has no styles, fall back to a
+  // single anonymous group made of the product's standalone colours.
+  const groups = useMemo(() => {
+    const styles = product.styles ?? [];
+    if (styles.length > 0) {
+      return styles.map((s, i) => ({
+        key: s.id,
+        label: String(i + 1).padStart(2, "0"),
+        colors: s.colors ?? [],
+      }));
+    }
+    return [{ key: "_", label: "", colors: product.colors ?? [] }];
+  }, [product.styles, product.colors]);
+
+  // Open the group that owns the current colourId (so navigating back keeps
+  // the visible style aligned with the chosen colour).
+  const initialIdx = Math.max(
+    0,
+    groups.findIndex((g) => g.colors.some((c) => c.id === colorId)),
+  );
+  const [openIdx, setOpenIdx] = useState(initialIdx);
+  const activeGroup = groups[openIdx] ?? groups[0];
+  const activeColor = activeGroup?.colors.find((c) => c.id === colorId);
+
+  return (
+    <div
+      className="fixed inset-0 z-[60] aquish-fade-in"
+      style={{ background: "rgba(245,244,240,0.35)" }}
+      onClick={onClose}
+    >
+      <aside
+        onClick={(e) => e.stopPropagation()}
+        className="absolute right-0 top-0 h-full w-full max-w-[360px] aquish-bg flex flex-col"
+        style={{ boxShadow: "-1px 0 0 rgba(0,0,0,0.08)" }}
+      >
+        <div className="flex items-center justify-between px-6 pt-6 pb-4 text-[11px] tracking-[0.25em]">
+          <span className="opacity-80">{product.name}</span>
+          <button onClick={onClose} className="aquish-link text-base leading-none">×</button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-6 pb-6 flex flex-col gap-8">
+          {groups.length > 1 && (
+            <div className="flex flex-col gap-3">
+              <div className="text-[10px] tracking-[0.3em] opacity-50">STYLES</div>
+              <div className="flex gap-5 items-baseline">
+                {groups.map((g, i) => {
+                  const active = i === openIdx;
+                  return (
+                    <button
+                      key={g.key}
+                      onClick={() => {
+                        setOpenIdx(i);
+                        const first = g.colors[0];
+                        if (first) setColorId(first.id);
+                      }}
+                      className="text-[11px] tracking-[0.25em] tabular-nums pb-1"
+                      style={{
+                        background: "transparent",
+                        border: "none",
+                        borderBottom: active ? "1px solid #000" : "1px solid transparent",
+                        opacity: active ? 1 : 0.4,
+                        cursor: "pointer",
+                        padding: 0,
+                      }}
+                    >
+                      {g.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {activeGroup && activeGroup.colors.length > 0 && (
+            <div className="flex flex-col gap-3 aquish-fade-in" key={activeGroup.key}>
+              <div className="flex items-baseline justify-between text-[10px] tracking-[0.3em] opacity-50">
+                <span>COLOUR</span>
+                <span className="opacity-70">{activeColor?.name ?? ""}</span>
+              </div>
+              <div className="flex gap-3 flex-wrap">
+                {activeGroup.colors.map((c) => {
+                  const sel = c.id === colorId;
+                  return (
+                    <button
+                      key={c.id}
+                      onClick={() => setColorId(c.id)}
+                      title={c.name}
+                      aria-label={c.name}
+                      style={{
+                        width: 22,
+                        height: 22,
+                        borderRadius: "50%",
+                        background: c.swatch,
+                        border: "1px solid rgba(0,0,0,0.2)",
+                        outline: sel ? "1px solid #000" : "none",
+                        outlineOffset: 3,
+                        padding: 0,
+                        cursor: "pointer",
+                      }}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {product.sizes.length > 0 && (
+            <div className="flex flex-col gap-3">
+              <div className="text-[10px] tracking-[0.3em] opacity-50">SIZE</div>
+              <div className="flex gap-2 flex-wrap">
+                {product.sizes.map((s) => {
+                  const sel = size === s;
+                  return (
+                    <button
+                      key={s}
+                      onClick={() => setSize(s)}
+                      className="text-[11px] tracking-[0.2em] py-2 min-w-[44px]"
+                      style={{
+                        background: "transparent",
+                        border: "none",
+                        borderBottom: sel ? "1px solid #000" : "1px solid rgba(0,0,0,0.15)",
+                        opacity: sel ? 1 : 0.55,
+                        cursor: "pointer",
+                      }}
+                    >
+                      {s}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="px-6 pb-8">
+          <button
+            disabled={soldOut || !size || !colorId}
+            onClick={onConfirm}
+            className="w-full py-4 text-[11px] tracking-[0.3em] disabled:opacity-30 aquish-btn-primary"
+            style={{ background: "#000", color: "#fff", border: "none" }}
+          >
+            {soldOut ? "SOLD OUT" : !size ? "SELECT SIZE" : "ADD TO BAG"}
+          </button>
+        </div>
+      </aside>
+    </div>
   );
 }
