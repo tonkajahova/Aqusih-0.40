@@ -448,11 +448,6 @@ function ProductCard({
       <div className="flex flex-col items-center gap-[2px] pt-[6px] pb-2 px-2">
         <div className="tracking-widest aquish-sku">{product.sku}</div>
         {soldOut && <div className="tracking-widest opacity-70">SOLD OUT</div>}
-        {lowStock && !dropping && (
-          <div className="tracking-widest opacity-70">
-            ONLY {product.stock} LEFT
-          </div>
-        )}
       </div>
     </button>
   );
