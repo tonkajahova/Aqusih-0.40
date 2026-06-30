@@ -434,7 +434,7 @@ function ProductEditor({
   );
 
 
-  const resizeImage = (file: File, maxDim = 1200, quality = 0.85): Promise<string> =>
+  const resizeImage = (file: File, maxDim = 900, quality = 0.85): Promise<string> =>
     new Promise((res, rej) => {
       const reader = new FileReader();
       reader.onload = () => {
@@ -456,13 +456,21 @@ function ProductEditor({
           const ctx = canvas.getContext("2d");
           if (!ctx) return rej(new Error("Canvas not supported"));
           ctx.drawImage(img, 0, 0, width, height);
-          // Preserve transparency for PNG / WebP / GIF uploads — encoding as
-          // JPEG would flatten the alpha channel to black. We keep JPEG for
-          // opaque photos (smaller files).
+          // Preserve transparency for PNG / WebP / GIF uploads — encoding
+          // as JPEG would flatten the alpha channel to black. We encode
+          // transparent images as WebP (much smaller than PNG while keeping
+          // alpha) and fall back to PNG only if the browser refuses WebP.
+          // Opaque photos use JPEG (smallest).
           const isTransparent = /png|webp|gif|svg/i.test(file.type);
-          const dataUrl = isTransparent
-            ? canvas.toDataURL("image/png")
-            : canvas.toDataURL("image/jpeg", quality);
+          let dataUrl: string;
+          if (isTransparent) {
+            dataUrl = canvas.toDataURL("image/webp", quality);
+            if (!dataUrl.startsWith("data:image/webp")) {
+              dataUrl = canvas.toDataURL("image/png");
+            }
+          } else {
+            dataUrl = canvas.toDataURL("image/jpeg", quality);
+          }
           res(dataUrl);
         };
         img.onerror = rej;
