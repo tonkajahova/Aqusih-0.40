@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { hydrateProductImages, persistProductImages } from "@/lib/image-store";
 
 export type ColorVariant = {
   id: string;
@@ -176,7 +177,8 @@ export async function loadFromCloud() {
     }));
     const products: Product[] = (prodsR.data ?? []).map(rowToProduct);
     const dropRaw = dropR.data?.value ?? "";
-    setState((s) => ({ ...s, categories, products, dropAt: dropRaw || null, loaded: true }));
+    const hydrated = await Promise.all(products.map((p) => hydrateProductImages(p)));
+    setState((s) => ({ ...s, categories, products: hydrated, dropAt: dropRaw || null, loaded: true }));
   })().finally(() => { loadingPromise = null; });
   return loadingPromise;
 }
@@ -265,9 +267,13 @@ export async function deleteCategory(id: string) {
 
 // --- Products ---
 export async function upsertProduct(p: Product) {
+  // Move inline data-URL images into IndexedDB and write only short refs to
+  // the database — this keeps the JSONB row tiny and avoids PostgREST size
+  // limits when products have many high-res transparent PNGs.
+  const persisted = await persistProductImages(p);
   const { error } = await supabase
     .from("products")
-    .upsert(productToRow(p), { onConflict: "id" });
+    .upsert(productToRow(persisted), { onConflict: "id" });
   if (error) {
     // Surface the failure so the admin UI can show it instead of silently
     // adding the product to local state and having it vanish on the next
